@@ -1,5 +1,6 @@
 use actix_cors::Cors;
-use actix_web::{middleware::Logger, web, App, HttpServer};
+use actix_web::{middleware::Logger, web::{self, Data}, App, HttpServer};
+use db::db::Database;
 use dotenv::dotenv;
 use env_logger;
 use std::env;
@@ -8,9 +9,10 @@ mod db;
 mod routes;
 mod controllers;
 mod models;
-mod services;
 mod repository;
 mod interfaces;
+mod utils;
+// mod services;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -22,9 +24,12 @@ async fn main() -> std::io::Result<()> {
 
     let port = env::var("PORT").unwrap_or_else(|_| "8000".to_string());
 
-    let mongodb_client = db::connect_to_mongodb()
-        .await
-        .expect("Failed to connect to MongoDB");
+    // let mongodb_client = db::connect_to_mongodb()
+    //     .await
+    //     .expect("Failed to connect to MongoDB");
+
+    let db = Database::init().await;
+    let db_data = Data::new(db);
 
     println!("Server running on port {}", port);
     
@@ -32,7 +37,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
         .wrap(Cors::permissive()) // Allow all origins (for testing)
         .wrap(Logger::default()) // Actix Logger Middleware
-        .app_data(mongodb_client.clone())
+        .app_data(db_data.clone())
         .service(web::scope("/api").configure(routes::configure_routes))
         // .route("/running-status", web::get().to(running_status))
     })

@@ -1,37 +1,29 @@
+use futures_util::TryStreamExt;
+use mongodb::{bson::{doc, Document}, error::Result, results::InsertOneResult, Collection, Database};
 use crate::models::teachers::Teacher;
-use mongodb::{bson::doc, error::Result, Collection, Database};
-use async_trait::async_trait;
 
-#[async_trait]
-pub trait TeacherRepository: Send + Sync {
-    async fn create_teacher(&self, teacher: &Teacher) -> Result<mongodb::results::InsertOneResult>;
-    async fn find_by_email(&self, email: &str) -> Result<Option<Teacher>>;
-    async fn find_by_username(&self, username: &str) -> Result<Option<Teacher>>;
-}
-
-pub struct MongoTeacherRepository {
+pub struct TeacherRepository {
     collection: Collection<Teacher>,
 }
 
-impl MongoTeacherRepository {
+impl TeacherRepository {
     pub fn new(db: &Database) -> Self {
         Self {
             collection: db.collection("teachers"),
         }
     }
-}
 
-#[async_trait]
-impl TeacherRepository for MongoTeacherRepository {
-    async fn create_teacher(&self, teacher: &Teacher) -> Result<mongodb::results::InsertOneResult> {
+    pub async fn create_teacher(&self, teacher: Teacher) -> Result<InsertOneResult> {
         self.collection.insert_one(teacher).await
     }
 
-    async fn find_by_email(&self, email: &str) -> Result<Option<Teacher>> {
-        self.collection.find_one(doc! { "email": email }).await
-    }
+    pub async fn get_teacher(&self, filter: Document) -> Result<Vec<Teacher>> {
+        let mut cursor = self.collection.find(filter).await?;
+        let mut teachers = Vec::new();
 
-    async fn find_by_username(&self, username: &str) -> Result<Option<Teacher>> {
-        self.collection.find_one(doc! { "username": username }).await
+        while let Some(teacher) = cursor.try_next().await? {
+            teachers.push(teacher);
+        }
+        Ok(teachers)
     }
 }
