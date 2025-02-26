@@ -206,7 +206,7 @@ pub async fn login_user(
     payload: web::Json<LoginRequest>,
 ) -> impl Responder {
     let login_data = payload.into_inner();
-    let identifier = login_data.email_or_username.to_lowercase();
+    let identifier = login_data.email_or_username;
     let password = login_data.password;
     let profession = login_data.profession.to_uppercase();
 
@@ -215,14 +215,14 @@ pub async fn login_user(
             let teacher_filter = doc! { "$or": [{"email": &identifier.to_lowercase()}, {"username": &identifier.to_uppercase()}] };
             match db.teacher_repo.get_teacher(teacher_filter).await.ok().and_then(|mut t| t.pop()) {
                 Some(teacher) => (User::Teacher(teacher), "TEACHER"),
-                None => return HttpResponse::Unauthorized().json(ApiResponse::error(401, "No User found with the provided credentials")),
+                None => return HttpResponse::Unauthorized().json(ApiResponse::error(401, "No Teacher found with the provided credentials")),
             }
         }
         "STUDENT" => {
             let student_filter = doc! { "$or": [{"email": &identifier.to_lowercase()}, {"username": &identifier.to_uppercase()}] };
             match db.student_repo.get_student(student_filter).await.ok().and_then(|mut s| s.pop()) {
                 Some(student) => (User::Student(student), "STUDENT"),
-                None => return HttpResponse::Unauthorized().json(ApiResponse::<()>::error(401, "No User found with the provided credentials")),
+                None => return HttpResponse::Unauthorized().json(ApiResponse::<()>::error(401, "No Student found with the provided credentials")),
             }
         }
         _ => {
