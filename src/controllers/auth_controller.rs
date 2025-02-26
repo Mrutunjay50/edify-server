@@ -7,8 +7,13 @@ use crate::{
     models::{
         students::{SocialAccounts, Student},
         teachers::{SocialAccounts as SocialAccountsForTeacher, Teacher},
-    }, utils::api_response::ApiResponse,
+    }, utils::{api_response::ApiResponse, jwt::generate_jwt_token},
 };
+
+enum User {
+    Student(Student),
+    Teacher(Teacher),
+}
 
 pub async fn register_user(
     db: web::Data<Database>,
@@ -115,13 +120,68 @@ pub async fn login_user(
     db: web::Data<Database>,
     payload: web::Json<LoginRequest>,
 ) -> impl Responder {
-    // let login_data = payload.into_inner();
-    // let token_result = db.login(&login_data.email, &login_data.password).await;
+    let login_data = payload.into_inner();
+    let identifier = login_data.email_or_username.to_lowercase();
+    let password = login_data.password;
+    let profession = login_data.profession.to_uppercase();
 
-    // match token_result {
-    //     Ok(Some(token)) => HttpResponse::Ok().json(token),
-    //     Ok(None) => HttpResponse::Unauthorized().json("Invalid credentials"),
-    //     Err(_) => HttpResponse::InternalServerError().json("Error processing request"),
-    // }
-    HttpResponse::Unauthorized().json("Invalid credentials")
+    let (user, profession) = match profession.as_str() {
+        "TEACHER" => {
+            let teacher_filter = doc! { "$or": [{"email": &identifier.to_lowercase()}, {"username": &identifier.to_uppercase()}] };
+            match db.teacher_repo.get_teacher(teacher_filter).await.ok().and_then(|mut t| t.pop()) {
+                Some(teacher) => (User::Teacher(teacher), "TEACHER"),
+                None => return HttpResponse::Unauthorized().json(ApiResponse::error(401, "No User found with the provided credentials")),
+            }
+        }
+        "STUDENT" => {
+            let student_filter = doc! { "$or": [{"email": &identifier.to_lowercase()}, {"username": &identifier.to_uppercase()}] };
+            match db.student_repo.get_student(student_filter).await.ok().and_then(|mut s| s.pop()) {
+                Some(student) => (User::Student(student), "STUDENT"),
+                None => return HttpResponse::Unauthorized().json(ApiResponse::<()>::error(401, "No User found with the provided credentials")),
+            }
+        }
+        _ => {
+            return HttpResponse::BadRequest().json(ApiResponse::error(400, "Invalid profession. Please specify either 'STUDENT' or 'TEACHER'."));
+        }
+    };
+
+    let is_password_valid = match &user {
+        User::Student(student) => student.password.as_ref().map(|p| p == &password).unwrap_or(false),
+        User::Teacher(teacher) => teacher.password.as_ref().map(|p| p == &password).unwrap_or(false),
+    };
+
+    if !is_password_valid {
+        return HttpResponse::Unauthorized().json(ApiResponse::<()>::error(401, "Invalid credentials or password mismatch"));
+    }
+
+    // Extract user details for the JWT token
+    let (user_id, email, username, fullname, profession) = match &user {
+        User::Student(student) => (student.id.clone(), &student.email, &student.username, &student.fullname, profession),
+        User::Teacher(teacher) => (teacher.id.clone(), &teacher.email, &teacher.username, &teacher.fullname, profession),
+    };
+
+    let token = match generate_jwt_token(&user_id.unwrap().to_string(), email, username, fullname, profession).await {
+        Ok(token) => token,
+        Err(_) => {
+            println!("Error generating JWT token");
+            return HttpResponse::InternalServerError()
+                .json(ApiResponse::error(500, "An error occurred while generating the JWT token. Please try again."));
+        }
+    };
+
+    // Return successful response
+    HttpResponse::Ok().json(ApiResponse::success(
+        200,
+        "Login successful",
+        serde_json::json!({
+            "token": token,
+            "user": {
+                "id": user_id,
+                "fullname": fullname,
+                "username": username,
+                "email": email,
+                "profession": profession
+            }
+        }),
+    ))
 }
