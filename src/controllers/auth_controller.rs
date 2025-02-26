@@ -3,11 +3,12 @@ use mongodb::bson::doc;
 
 use crate::{
     db::db::Database,
-    interfaces::register_request::{LoginRequest, RegisterRequest},
+    interfaces::{register_request::{LoginRequest, RegisterRequest}, schema_utilities::{EducationLevel, InWhat, Profession}},
     models::{
         students::{SocialAccounts, Student},
         teachers::{SocialAccounts as SocialAccountsForTeacher, Teacher},
-    }, utils::{api_response::ApiResponse, jwt::generate_jwt_token},
+    }, 
+    utils::{api_response::ApiResponse, jwt::generate_jwt_token},
 };
 
 enum User {
@@ -22,17 +23,31 @@ pub async fn register_user(
     let register_data = payload.into_inner();
     let profession = register_data.profession.to_uppercase();
     let username = register_data.username.to_uppercase();
-    let email = register_data.email.clone();
+    let email = register_data.email.to_lowercase().clone();
     println!("Attempting to register: {:?}", register_data);
 
+    if username.is_empty() {
+        return HttpResponse::BadRequest()
+            .json(ApiResponse::error(400, "Username is required"));
+    }
+
+    if email.is_empty() {
+        return HttpResponse::BadRequest()
+            .json(ApiResponse::error(400, "Email is required"));
+    }
+
+    // let student_data = db.student_repo.get_student(doc! {"$or": [{"email": &email}, {"username": &username}]}).await;
+
+    // println!(" Student data: {:?}", student_data);
+
     if db.student_repo
-    .get_student(doc! {"$or": [{"email": &email.to_lowercase()}, {"username": &username}]})
+    .get_student(doc! {"$or": [{"email": &email}, {"username": &username}]})
     .await
     .map(|students| !students.is_empty()) // Convert to bool
     .unwrap_or(false) // Handle errors safely
     || 
     db.teacher_repo
-    .get_teacher(doc! {"$or": [{"email": &email.to_lowercase()}, {"username": &username}]})
+    .get_teacher(doc! {"$or": [{"email": &email}, {"username": &username}]})
     .await
     .map(|teachers| !teachers.is_empty()) // Convert to bool
     .unwrap_or(false) // Handle errors safely
@@ -42,6 +57,47 @@ pub async fn register_user(
 
     let result = match profession.as_str() {
         "STUDENT" => {
+            let in_what = match register_data.in_what {
+                Some(ref in_what) => in_what.to_uppercase(),
+                None => {
+                    return HttpResponse::BadRequest()
+                        .json(ApiResponse::error(400, "The 'in_what' field is required"));
+                }
+            };
+        
+            let school_student = register_data.school_student.unwrap_or_default();
+            let college_student = register_data.college_student.unwrap_or_default();
+        
+            if school_student.is_empty() && college_student.is_empty() {
+                return HttpResponse::BadRequest()
+                    .json(ApiResponse::error(400, "Either 'school_student' or 'college_student' must be provided"));
+            }
+
+            let education_level = if let Some(level) = match school_student.as_str() {
+                "6" => Some(EducationLevel::Grade6),
+                "7" => Some(EducationLevel::Grade7),
+                "8" => Some(EducationLevel::Grade8),
+                "9" => Some(EducationLevel::Grade9),
+                "10" => Some(EducationLevel::Grade10),
+                "11" => Some(EducationLevel::Grade11),
+                "12" => Some(EducationLevel::Grade12),
+                _ => None,
+            } {
+                Some(level)
+            } else if let Some(level) = match college_student.as_str() {
+                "BTech" => Some(EducationLevel::BTech),
+                "BSc" => Some(EducationLevel::BSc),
+                "BA" => Some(EducationLevel::BA),
+                "BCom" => Some(EducationLevel::BCom),
+                "BBA" => Some(EducationLevel::BBA),
+                "BCA" => Some(EducationLevel::BCA),
+                _ => None,
+            } {
+                Some(level)
+            } else {
+                return HttpResponse::BadRequest()
+                    .json(ApiResponse::error(400, "Invalid education level"));
+            };
             let student = Student {
                 id: None,
                 profile_picture: "".to_string(),
@@ -52,7 +108,7 @@ pub async fn register_user(
                 password: Some(register_data.password),
                 contact: "".to_string(),
                 pronoun: "notspecified".to_string(),
-                profession: "STUDENT".to_string(),
+                profession: Profession::Student,
                 age: None,
                 socialacc: SocialAccounts {
                     instagram: "".to_string(),
@@ -61,9 +117,12 @@ pub async fn register_user(
                 },
                 institute: "".to_string(),
                 passing_year: "".to_string(),
-                in_what: "".to_string(),
-                school_student: "".to_string(),
-                college_student: "".to_string(),
+                in_what: match in_what.as_str() {
+                    "SCHOOL" => InWhat::School,
+                    "COLLEGE" => InWhat::College,
+                    _ => return HttpResponse::BadRequest().json(ApiResponse::error(400, "Invalid in_what parameter")),
+                },
+                education_level,
                 recent_items: vec![],
                 completed_items: vec![],
                 action_scores: 0,
@@ -73,6 +132,32 @@ pub async fn register_user(
             db.student_repo.create_student(student).await
         }
         "TEACHER" => {
+            let classes = register_data.classes.unwrap_or_default();
+            let mut education_levels = vec![];
+        
+            for class in classes.split(',').map(|s| s.trim()) {
+                match class {
+                    "6" => education_levels.push(EducationLevel::Grade6),
+                    "7" => education_levels.push(EducationLevel::Grade7),
+                    "8" => education_levels.push(EducationLevel::Grade8),
+                    "9" => education_levels.push(EducationLevel::Grade9),
+                    "10" => education_levels.push(EducationLevel::Grade10),
+                    "11" => education_levels.push(EducationLevel::Grade11),
+                    "12" => education_levels.push(EducationLevel::Grade12),
+                    "BTech" => education_levels.push(EducationLevel::BTech),
+                    "BSc" => education_levels.push(EducationLevel::BSc),
+                    "BA" => education_levels.push(EducationLevel::BA),
+                    "BCom" => education_levels.push(EducationLevel::BCom),
+                    "BBA" => education_levels.push(EducationLevel::BBA),
+                    "BCA" => education_levels.push(EducationLevel::BCA),
+                    _ => {} // Ignore invalid entries
+                }
+            }
+
+            if education_levels.is_empty() {
+                return HttpResponse::BadRequest()
+                    .json(ApiResponse::error(400, "Invalid education level(s) in classes"));
+            }
             let teacher = Teacher {
                 id: None,
                 profile_picture: "".to_string(),
@@ -83,7 +168,7 @@ pub async fn register_user(
                 password: Some(register_data.password),
                 contact: "".to_string(),
                 pronoun: "notspecified".to_string(),
-                profession: "TEACHER".to_string(),
+                profession: Profession::Teacher,
                 age: None,
                 socialacc: SocialAccountsForTeacher {
                     instagram: "".to_string(),
@@ -91,7 +176,7 @@ pub async fn register_user(
                     linkedin: "".to_string(),
                 },
                 experience: "".to_string(),
-                classes: "".to_string(),
+                classes: education_levels,
                 subjects: "".to_string(),
             };
             db.teacher_repo.create_teacher(teacher).await

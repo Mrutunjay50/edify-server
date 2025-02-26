@@ -1,6 +1,9 @@
 use mongodb::bson::{oid::ObjectId, doc};
 use serde::{Deserialize, Serialize};
 
+use crate::interfaces::schema_utilities::{EducationLevel, InWhat, Profession};
+
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Student {
@@ -14,14 +17,13 @@ pub struct Student {
     pub password: Option<String>,
     pub contact: String,
     pub pronoun: String,
-    pub profession: String,  // Always "STUDENT"
     pub age: Option<u32>,
     pub socialacc: SocialAccounts,
     pub institute: String,
     pub passing_year: String,
-    pub in_what: String, // "school" or "college"
-    pub school_student: String, // "6" to "12" or ""
-    pub college_student: String, // "Btech", "Bsc", or ""
+    pub profession: Profession, // Always "STUDENT"
+    pub in_what: InWhat,
+    pub education_level: Option<EducationLevel>, // Replaces school_student & college_student
     pub recent_items: Vec<ObjectId>, // Up to 5 items
     pub completed_items: Vec<ObjectId>,
     pub action_scores: i32,
@@ -40,14 +42,11 @@ pub struct SocialAccounts {
 impl Student {
     /// Validate student-specific fields
     pub fn _validate(&self) -> Result<(), String> {
-        if self.profession != "STUDENT" {
+        if self.profession != Profession::Student {
             return Err("Invalid profession for Student".to_string());
         }
-        if self.in_what == "school" && self.school_student.is_empty() {
-            return Err("School student grade is required".to_string());
-        }
-        if self.in_what == "college" && self.college_student.is_empty() {
-            return Err("College student field is required".to_string());
+        if self.education_level.is_none() {
+            return Err("Education level is required".to_string());
         }
         if self.recent_items.len() > 5 {
             return Err("Recent items cannot exceed 5".to_string());
