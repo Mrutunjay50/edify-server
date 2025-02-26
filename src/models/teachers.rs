@@ -32,7 +32,7 @@ pub struct SocialAccounts {
 
 impl Teacher {
     /// Validate teacher-specific fields
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn _validate(&self) -> Result<(), String> {
         if self.profession != "TEACHER" {
             return Err("Invalid profession for Teacher".to_string());
         }

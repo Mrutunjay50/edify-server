@@ -5,6 +5,6 @@ async fn get_courses() -> impl Responder {
     HttpResponse::Ok().body("Course List")
 }
 
-pub fn course_routes(cfg: &mut web::ServiceConfig) {
+pub fn _course_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(get_courses);
 }

@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, Responder, post, web};
+use actix_web::{HttpResponse, Responder, web};
 use mongodb::bson::doc;
 
 use crate::{

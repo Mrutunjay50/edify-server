@@ -1,5 +1,5 @@
 use futures_util::TryStreamExt;
-use mongodb::{bson::{doc, Document}, error::Result, results::InsertOneResult, Collection, Database};
+use mongodb::{bson::Document, error::Result, results::InsertOneResult, Collection, Database};
 use crate::models::teachers::Teacher;
 
 pub struct TeacherRepository {

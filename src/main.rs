@@ -18,7 +18,7 @@ mod utils;
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
     unsafe {
-        env::set_var("RUST_LOG", "debug");
+        env::set_var("RUST_LOG", "info");
     }
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 

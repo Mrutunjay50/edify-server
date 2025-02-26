@@ -36,7 +36,7 @@ pub async fn generate_jwt_token(user_id: &str, email: &str, username: &str, full
 
 //verify or decode jwt token
 
-pub async fn verify_jwt_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+pub async fn _verify_jwt_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
     let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "super_secret_key".to_string());
 
     let result = decode::<Claims>(&token, &DecodingKey::from_secret(secret.as_ref()), &Validation::default())?;

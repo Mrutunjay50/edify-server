@@ -39,7 +39,7 @@ pub struct SocialAccounts {
 
 impl Student {
     /// Validate student-specific fields
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn _validate(&self) -> Result<(), String> {
         if self.profession != "STUDENT" {
             return Err("Invalid profession for Student".to_string());
         }
