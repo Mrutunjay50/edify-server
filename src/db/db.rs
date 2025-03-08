@@ -56,11 +56,12 @@
 
 use std::env;
 use mongodb::{options::ClientOptions, Client};
-use crate::repository::{student_repository::StudentRepository, teacher_repository::TeacherRepository};
+use crate::repository::{course_repository::CourseRepository, student_repository::StudentRepository, teacher_repository::TeacherRepository};
 
 pub struct Database {
     pub student_repo: StudentRepository,
     pub teacher_repo: TeacherRepository,
+    pub course_repo: CourseRepository
 }
 
 impl Database {
@@ -75,6 +76,7 @@ impl Database {
         Self {
             student_repo: StudentRepository::new(&db),
             teacher_repo: TeacherRepository::new(&db),
+            course_repo: CourseRepository::new(&db)
         }
     }
 }
