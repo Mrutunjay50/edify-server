@@ -12,6 +12,7 @@ mod models;
 mod repository;
 mod interfaces;
 mod utils;
+mod middleware;
 // mod services;
 
 #[actix_web::main]
@@ -30,6 +31,7 @@ async fn main() -> std::io::Result<()> {
 
     let db = Database::init().await;
     let db_data = Data::new(db);
+    Database::initialize().await;
 
     println!("Server running on port {}", port);
     

@@ -1,12 +1,12 @@
 use std::env;
 
 use chrono::{Duration, Utc};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{ encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub user_id : String,
     pub email : String,
@@ -36,10 +36,10 @@ pub async fn generate_jwt_token(user_id: &str, email: &str, username: &str, full
 
 //verify or decode jwt token
 
-pub async fn _verify_jwt_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
-    let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "super_secret_key".to_string());
+// pub fn verify_jwt_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+//     let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "super_secret_key".to_string());
 
-    let result = decode::<Claims>(&token, &DecodingKey::from_secret(secret.as_ref()), &Validation::default())?;
+//     let result = decode::<Claims>(&token, &DecodingKey::from_secret(secret.as_ref()), &Validation::default())?;
 
-    Ok(result.claims)
-}
+//     Ok(result.claims)
+// }

@@ -57,12 +57,18 @@
 use std::env;
 use mongodb::{options::ClientOptions, Client};
 use crate::repository::{course_repository::CourseRepository, student_repository::StudentRepository, teacher_repository::TeacherRepository};
+use once_cell::sync::Lazy;
+use tokio::sync::OnceCell;
 
+#[derive(Debug)]
 pub struct Database {
     pub student_repo: StudentRepository,
     pub teacher_repo: TeacherRepository,
     pub course_repo: CourseRepository
 }
+
+// Define a global Database instance
+static DATABASE: Lazy<OnceCell<Database>> = Lazy::new(|| OnceCell::new());
 
 impl Database {
     pub async fn init() -> Self {
@@ -79,4 +85,14 @@ impl Database {
             course_repo: CourseRepository::new(&db)
         }
     }
+    // Initialize the global database
+    pub async fn initialize() {
+        let db = Database::init().await;
+        DATABASE.set(db).expect("Failed to initialize database");
+    }
+
+    // Retrieve a reference to the global database
+    // pub fn get() -> &'static Database {
+    //     DATABASE.get().expect("Database not initialized. Call Database::initialize() first.")
+    // }
 }

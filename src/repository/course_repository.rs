@@ -2,6 +2,7 @@ use futures_util::TryStreamExt;
 use mongodb::{bson::Document, error::Result, Collection, Database};
 use crate::models::course::Course;
 
+#[derive(Debug)]
 pub struct CourseRepository {
     course_collection: Collection<Course>,
 }
