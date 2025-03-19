@@ -1,5 +1,5 @@
 use futures_util::TryStreamExt;
-use mongodb::{bson::Document, error::Result, results::InsertOneResult, Collection, Database};
+use mongodb::{bson::Document, error::Result, results::{InsertOneResult, UpdateResult}, Collection, Database};
 use crate::models::students::Student;
 
 #[derive(Debug)]
@@ -17,6 +17,15 @@ impl StudentRepository {
     pub async fn create_student(&self, student: Student) -> Result<InsertOneResult> {
         self.student.insert_one(student).await
     }
+    pub async fn update_student(&self,filter: Document, updated_fields: Document) -> Result<UpdateResult> {
+        self.student
+            .update_one(
+                filter, 
+                updated_fields
+            )
+            .await
+    }
+    
 
     pub async fn get_student(&self, filter: Document) -> Result<Vec<Student>> {
         let mut student_data = self.student.find(filter).await?;
