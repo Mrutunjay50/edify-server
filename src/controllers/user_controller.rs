@@ -4,27 +4,69 @@ use serde::Deserialize;
 use crate::{db::db::Database, interfaces::{register_request::StudentUpdateRequest, schema_utilities::{EducationLevel, InWhat, Profession}}, models::{students::{SocialAccounts, Student}, teachers::{SocialAccounts as SocialAccountsForTeacher, Teacher},}, utils::api_response::ApiResponse};
 
 
+#[derive(Deserialize)]
+pub struct UserId {
+    user_id: String,
+}
+
+#[derive(Deserialize)]
+pub struct UserQuery {
+    user_id: String,
+    profession: String,
+}
+
 pub async fn get_user(
     db: web::Data<Database>,
+    query: web::Query<UserQuery>,
 ) -> impl Responder {
-    let course_filter = doc! { "coursename" : { "$in" : ["btech", "bsc"]} };
-    let course = match db.course_repo.get_courses(course_filter).await {
-        Ok(course) => course,
-        _ => return HttpResponse::Unauthorized().json(ApiResponse::error(401, "No college course found")),
+    let user_id = match mongodb::bson::oid::ObjectId::parse_str(&query.user_id) {
+        Ok(oid) => oid,
+        Err(_) => return HttpResponse::BadRequest().json(ApiResponse::error(400, "Invalid user ID format")),
     };
 
-    HttpResponse::Ok().json(ApiResponse::success(
-        200,
-        "all college courses found successfully",
-        serde_json::json!(course),
-    ))
+    let profession = query.profession.to_uppercase();
+
+    let user = match profession.as_str() {
+        "TEACHER" => {
+            let filter = doc! { "_id": user_id };
+            match db.teacher_repo.get_teacher(filter).await {
+                Ok(teachers) => {
+                    if let Some(teacher) = teachers.into_iter().next() { // ✅ Extract the first teacher
+                        HttpResponse::Ok().json(ApiResponse::success(200, "Teacher found", serde_json::json!(teacher)))
+                    } else {
+                        HttpResponse::NotFound().json(ApiResponse::error(404, "Teacher not found"))
+                    }
+                }
+                Err(_) => HttpResponse::InternalServerError().json(ApiResponse::error(500, "Database error")),
+            }
+        }
+        "STUDENT" => {
+            let filter = doc! { "_id": user_id };
+            match db.student_repo.get_student(filter).await {
+                Ok(students) => {
+                    if let Some(student) = students.into_iter().next() { // ✅ Extract the first student
+                        HttpResponse::Ok().json(ApiResponse::success(200, "Student found", serde_json::json!(student)))
+                    } else {
+                        HttpResponse::NotFound().json(ApiResponse::error(404, "Student not found"))
+                    }
+                }
+                Err(_) => HttpResponse::InternalServerError().json(ApiResponse::error(500, "Database error")),
+            }
+        }
+        _ => return HttpResponse::BadRequest().json(ApiResponse::error(400, "Invalid profession")),
+    };
+
+    user
 }
+
 
 pub async fn update_student(
     db: web::Data<Database>,
-    user_id: String,
+    query: Query<UserId>,
     payload: web::Json<StudentUpdateRequest>,
 ) -> impl Responder {
+
+    let user_id = &query.user_id;
     let register_data = payload.into_inner();
     let mut update_fields = doc! {};
 
